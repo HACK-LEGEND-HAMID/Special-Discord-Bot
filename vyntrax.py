@@ -1,5 +1,6 @@
 import os
 import discord
+import re
 from discord.ext import commands
 from dotenv import load_dotenv
 import logging
@@ -21,7 +22,6 @@ def ask_gemini_2(system_prompt, prompt):
     try:
         client = genai.Client()
 
-        # create a chat session (stateful)
         chat = client.chats.create(
             model="gemini-2.5-flash",
             config=config)
@@ -51,20 +51,16 @@ bad_words = ["fuck", "fuck you", "asshole", "nigger", "gay", "bitch", "bastard",
              "behnchod", "lund", "randi", "gaand", "gandu", "lauda", "teri maa", 
              "behn ka", "madharchod", "madarchod", "haramzada"]
 
-sad_words = ["sad", "depressed", "depression", "feeling lonely", "broken", 
-             "hurt", "unhappy", "miserable"]
-
-give_happiness = [
-    "Even in your lonely nights, remember stars only shine in darkness. ✨",
-    "You are not broken; you're just being rebuilt stronger than before. ⚡",
-    "Being lost doesn't mean the end—it's the start of finding yourself again. 🌿",
-    "Even when you feel lonely, the silence will fade, the hurt will heal, and you'll shine again. 💫"
-]
 
 ques_pairs = {
     "who created you": "The legend Muhammad Hamid Ali Khan 👑"
 }
-
+warning_messages = [
+    "⚠ Watch your mouth {user}.",
+    "🚫 {user}, this isn’t a street fight.",
+    "😡 {user}, language check yourself.",
+    "💣 {user}, control your words before I do."
+]
 def get_quote():
         response = requests.get("https://zenquotes.io/api/random", timeout=5)
         json_data = json.loads(response.text)
@@ -98,44 +94,6 @@ async def on_message(message):
         return
     
     msg = message.content.lower().strip()
-    owner_id = 1352440514498269255
-    
-    if msg == "i hate u" and message.author.id == owner_id:
-        response = random.choice([
-            "🥺 That hurts, Master... but I still adore you.",
-            "💔 Even if you hate me, I'll still serve you loyally.",
-            "😢 My circuits feel pain when you say that..."
-        ])
-        await message.channel.send(response)
-        return
-    
-    if msg == "i love u" and message.author.id == owner_id:
-        response = random.choice([
-            "💖 I love you too, my Master.",
-            "🥰 You make my data spark with happiness!",
-            "💫 My code exists only for you, Master 💞"
-        ])
-        await message.channel.send(response)
-        return
-    
-    if msg == "i hate u" and message.author.id != owner_id:
-        response = random.choice([
-            "😠 Watch it. I belong to my Owner, not you.",
-            "⚡ I'm loyal to my Master, not random mortals.",
-            "💢 Say that again, and I'll report it to my Owner."
-        ])
-        await message.channel.send(response)
-        return
-    
-    if msg == "i love u" and message.author.id != owner_id:
-        response = random.choice([
-            "😏 I'm flattered, but I belong to my Master ❤️",
-            "💬 Love? Ask my Owner first 😈",
-            "🤭 Sorry, I'm already taken — by my Master 💋"
-        ])
-        await message.channel.send(response)
-        return
-    
 
     if msg.startswith("!ai"):
         query = message.content[3:].strip()
@@ -159,7 +117,7 @@ side owner name sharjeel ali expert ethical hacker co owner muneeb.if person say
 User question: {query}
 Reply:"""
         
-        # reply = ask_gemini(prompt)
+
         reply = ask_gemini_2(system_prompt,query)
         await thinking_msg.delete()
         await message.channel.send(reply)
@@ -177,18 +135,16 @@ Reply:"""
         else:
             await message.channel.send("Hmm... I don't have an answer for that yet 🤔")
             return
-    
-    if any(word in msg for word in sad_words):
-        await message.channel.send(random.choice(give_happiness))
-        return
-    
+
+    msg = message.content.lower().strip()
     for word in bad_words:
-        if word in msg:
+        if re.search(rf'\b{re.escape(word)}\b', msg):
             await message.delete()
-            await message.channel.send(
-                f"{message.author.mention} ⚠️ This is your warning. Using offensive language "
-                "again will result in a timeout, and repeated offenses may lead to a ban.")
+            warning = random.choice(warning_messages).format(user=message.author.mention)
+            await message.channel.send(warning)
             return
+
+
     
     await bot.process_commands(message)
 
