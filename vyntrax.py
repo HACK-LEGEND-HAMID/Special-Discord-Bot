@@ -1,7 +1,7 @@
 import os
 import discord
-import re
 from discord.ext import commands
+from discord import app_commands
 from dotenv import load_dotenv
 import logging
 import requests
@@ -11,25 +11,41 @@ import google.generativeai as genai
 from google.genai import types
 from google import genai
 
-def ask_gemini_2(system_prompt, prompt):
+user_sessions = {}
 
-    tools = [{'google_search': {}}]
-    config= types.GenerateContentConfig(
-        system_instruction=system_prompt,
-        tools=tools
-    )
-
+def ask_gemini_3(system_prompt, question, previous_id=None):
     try:
         client = genai.Client()
 
+        tools = [{'google_search': {}}]
+        config = types.GenerateContentConfig(
+            system_instruction=system_prompt,
+            tools=tools
+        )
+
         chat = client.chats.create(
-            model="gemini-2.5-flash",
-            config=config)
-        response = chat.send_message(prompt)
-        return response.text.strip()
+            model="gemini-3-flash-preview",
+            config=config
+        )
+
+        if previous_id:
+            response = chat.send_message(question, previous_interaction_id=previous_id)
+        else:
+            response = chat.send_message(question)
+
+        return response.text.strip(), chat.id
+
     except Exception as e:
-        print(f"AI Error: {e}")
-        return "Sorry, I couldn't get a reply right now. 😔"
+        print("AI Error:", e)
+        return "Sorry, I couldn't reply 😔", None
+
+
+
+def get_quote(): 
+    response = requests.get("https://zenquotes.io/api/random", timeout=5) 
+    json_data = json.loads(response.text) 
+    quote = json_data[0]['q'] + " - " + json_data[0]['a'] 
+    return quote
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
@@ -40,112 +56,69 @@ GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
 
 intents = discord.Intents.default()
-intents.message_content = True
 intents.members = True
-
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-bad_words = ["fuck", "fuck you", "asshole", "nigger", "gay", "bitch", "bastard", 
-             "fag", "whore", "slut", "pussy", "dick", "stupid", "jerk", "ass", 
-             "piss", "bhosda", "chod", "chutiya", "bsdk", "madarchod", "bc", 
-             "behnchod", "lund", "randi", "gaand", "gandu", "lauda", "teri maa", 
-             "behn ka", "madharchod", "madarchod", "haramzada"]
+@bot.event
+async def on_ready():
+    await bot.tree.sync()
+    print(f"✅ Logged in as {bot.user}")
 
-
-ques_pairs = {
-    "who created you": "The legend Muhammad Hamid Ali Khan 👑"
-}
-warning_messages = [
-    "⚠ Watch your mouth {user}.",
-    "🚫 {user}, this isn’t a street fight.",
-    "😡 {user}, language check yourself.",
-    "💣 {user}, control your words before I do."
-]
-def get_quote():
-        response = requests.get("https://zenquotes.io/api/random", timeout=5)
-        json_data = json.loads(response.text)
-        quote = json_data[0]['q'] + " - " + json_data[0]['a']
-        return quote
+@bot.event
+async def on_member_join(member):
+    await member.send(f"🎉 Welcome to **Vyntrax Dominion**, {member.name}!")
 
 @bot.event
 async def on_member_remove(member):
     with open("leaves.txt", "a") as f:
-        f.write(f"{member.name} ({member.id}) left the server.\n")
+        f.write(f"{member.name} ({member.id}) left the server\n")
 
-@bot.event
-async def on_ready():
-    print(f'{bot.user} has connected to Discord!')
-    guild = discord.utils.get(bot.guilds, name=GUILD)
-    if guild:
-        print(f"🌍 Connected to guild: {guild.name} (ID: {guild.id})")
-        print(f"🎯 Matched main server: {guild.name}")
-        members = '\n - '.join([member.name for member in guild.members])
-        print(f'Guild Members:\n - {members}')
-    else:
-        print("❌ No guild found matching that name.")
 
-@bot.event
-async def on_member_join(member):
-    await member.send(f"Welcome to the Vyntrax Dominion {member.name}! 🎉")
-
-@bot.event
-async def on_message(message):
-    if message.author == bot.user:
-        return
+@bot.tree.command(name="ai", description="Ask AI anything")
+@app_commands.describe(question="Ask your question")
+async def ai(interaction: discord.Interaction, question: str):
     
-    msg = message.content.lower().strip()
-
-    if msg.startswith("!ai"):
-        query = message.content[3:].strip()
-        if query == "":
-            await message.reply("💬 Ask me something! Example: `!ai tell me a joke`")
-            return
-        
-        thinking_msg = await message.channel.send("Thinking... 🤔")
-        
-        system_prompt = """
-You are a friendly AI girl bot. Reply in a cute, friendly way.
-Keep your answer short (3-5 lines max).
-Use simple English and be helpful.
-If someone says 'I love you', politely say you belong to your owner.
-if someone say who is the owner of this server reply him beginner hacker Muhammad Hamid Ali khan in legendary way with beautiful quotes
-side owner name sharjeel ali expert ethical hacker co owner muneeb.if person say who is ur owner u reply him beginner hacker Muhammad Hamid Ali Khan in legendary way...one more thing which i want to tell u is that i am using ur api but u are in discord group so make ur message eye catching and beautiful talk like human girl
+    await interaction.response.defer()
+    system_prompt = """
+You are a friendly AI girl and Your name is Filra Span.
+Reply in a cute, friendly way.
+Keep replies short (3–5 lines).
+If someone asks who owns the server,
+reply in a legendary way:
+Owner:Muhammad Hamid Ali Khan 👑
+Side Owner:Muhammad Qaiser Mehboob
+Co-Owner: Muhammad Hashir Amir 💘
 """
-
-        prompt = f"""
-{system_prompt}
-User question: {query}
-Reply:"""
-        
-
-        reply = ask_gemini_2(system_prompt,query)
-        await thinking_msg.delete()
-        await message.channel.send(reply)
-        return
     
-    if message.content.startswith("$"):
-        user_msg = message.content[1:].strip().lower()
-        if user_msg in ques_pairs:
-            await message.channel.send(ques_pairs[user_msg])
-            return
-        elif user_msg == "give_quote":
-            quote = get_quote()
-            await message.channel.send(f"📜 {quote}")
-            return
-        else:
-            await message.channel.send("Hmm... I don't have an answer for that yet 🤔")
-            return
+    user_id = interaction.user.id
 
-    msg = message.content.lower().strip()
-    for word in bad_words:
-        if re.search(rf'\b{re.escape(word)}\b', msg):
-            await message.delete()
-            warning = random.choice(warning_messages).format(user=message.author.mention)
-            await message.channel.send(warning)
-            return
+    previous_id = user_sessions.get(user_id)  
+
+    reply, new_id = ask_gemini_3(
+        system_prompt,
+        question,
+        previous_id
+    )
+
+    if new_id:
+        user_sessions[user_id] = new_id 
+
+    await interaction.followup.send(reply)
 
 
-    
-    await bot.process_commands(message)
+
+@bot.tree.command(name="quote",description="Get a Random Motivational Quotes")
+async def quote(interaction:discord.Interaction):
+    await interaction.response.send_message(f"📜 {get_quote()}")
+    return
+
+
+@bot.tree.command(name="owner", description="Know the Server Owner")
+async def owner(interaction: discord.Interaction):
+    await interaction.response.send_message(
+        "👑 **The legendary Creator**: Muhammad Hamid Ali Khan ``(Ethical Hacker)``\n"
+        "🌟**Side Owner**: Muhammad Qaiser ``(Web Developer)``\n"
+        "💘**Co-Owner**: Muhammad Hashir Amir ``(Web Developer)``"
+    )
 
 bot.run(TOKEN, log_handler=handler, log_level=logging.DEBUG)
