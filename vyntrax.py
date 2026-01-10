@@ -46,10 +46,12 @@ def get_quote():
     json_data = json.loads(response.text) 
     quote = json_data[0]['q'] + " - " + json_data[0]['a'] 
     return quote
+def Royal_Permission():
+    permission="You Need Royal Permission For Banning User"
+    return permission
 
 load_dotenv()
 TOKEN = os.getenv('DISCORD_TOKEN')
-GUILD = os.getenv('DISCORD_GUILD')
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 
 
@@ -104,8 +106,25 @@ Co-Owner: Muhammad Hashir Amir 💘
         user_sessions[user_id] = new_id 
 
     await interaction.followup.send(reply)
+    return
 
-
+OWNER_ID = 1352440514498269255
+SIDE_OWNER_ID =0000
+CO_OWNER_ID = 00000
+@bot.tree.command(name="ban",description="Used For Ban")
+@app_commands.describe(member="User to Ban",reason="Reason for Ban")
+async def ban(interaction:discord.Interaction,member:discord.Member,reason:str="No Reason Provided"):
+    if interaction.user!=OWNER_ID:
+        print(Royal_Permission())
+    elif interaction.user!=SIDE_OWNER_ID:
+        print(Royal_Permission())
+    elif interaction.user!=CO_OWNER_ID:
+        printf(Royal_Permission())
+    try:
+        await member.ban(reason=reason)
+        await interaction.response.send_message(f"✅ **{member}** This member is successfully banned in this Server \n📄Reason:{reason}")
+    except Exception as e:
+        await interaction.response.message_send(f"User is not Banned due to internal issue {e}")
 
 @bot.tree.command(name="quote",description="Get a Random Motivational Quotes")
 async def quote(interaction:discord.Interaction):
