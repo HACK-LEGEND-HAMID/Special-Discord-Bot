@@ -16,9 +16,9 @@ This bot is made to give your Discord server a **premium & alive feeling**.
 
 ---
 
-👑 **Owner**: Muhammad Hamid Ali Khan  
-🛡️ **Side Owner**: Muhammad Qaiser khan
-🤝 **Co-Owner**: Muhammad Hashir Amir
+-👑 **Owner**: Muhammad Hamid Ali Khan  
+-🛡️ **Side Owner**: Muhammad Qaiser khan
+-🤝 **Co-Owner**: Muhammad Hashir Amir
 
 ---
 
