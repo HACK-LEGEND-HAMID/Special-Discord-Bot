@@ -7,38 +7,45 @@ import logging
 import requests
 import json
 import random
-import google.generativeai as genai
-from google.genai import types
-from google import genai
+from openai import OpenAI
 
-user_sessions = {}
+load_dotenv()
+TOKEN= os.getenv('DISCORD_TOKEN')
+DEEPSEEK_API_KEY=os.getenv('DEEPSEEK_API_KEY')
 
-def ask_gemini_3(system_prompt, question, previous_id=None):
-    try:
-        client = genai.Client()
+handler=logging.FileHandler(filename='discord.log', encoding='utf-8',mode='w')
+intents=discord.Intents.default()
+intents.members = True
+bot = commands.Bot(command_prefix='!',intents=intents)
 
-        tools = [{'google_search': {}}]
-        config = types.GenerateContentConfig(
-            system_instruction=system_prompt,
-            tools=tools
-        )
+client = OpenAI(
+    api_key=os.getenv("DEEPSEEK_API_KEY"),
+    base_url="https://openrouter.ai/api/v1"
+)
+client = OpenAI(
+    api_key=DEEPSEEK_API_KEY,
+    base_url="https://api.deepseek.com/v1"
+)
 
-        chat = client.chats.create(
-            model="gemini-3-flash-preview",
-            config=config
-        )
+def openrouter_chat(system_prompt, question):
+    response = client.chat.completions.create(
+        model="deepseek/deepseek-chat",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": question}
+        ]
+    )
+    return response.choices[0].message.content
 
-        if previous_id:
-            response = chat.send_message(question, previous_interaction_id=previous_id)
-        else:
-            response = chat.send_message(question)
-
-        return response.text.strip(), chat.id
-
-    except Exception as e:
-        print("AI Error:", e)
-        return "Sorry, I couldn't reply 😔", None
-
+def openrouter_think(system_prompt, question):
+    response = client.chat.completions.create(
+        model="deepseek/deepseek-r1",
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": question}
+        ]
+    )
+    return response.choices[0].message.content
 
 
 def get_quote(): 
@@ -46,20 +53,10 @@ def get_quote():
     json_data = json.loads(response.text) 
     quote = json_data[0]['q'] + " - " + json_data[0]['a'] 
     return quote
+
 def Royal_Permission():
     permission="You Need Royal Permission For Banning User"
     return permission
-
-load_dotenv()
-TOKEN = os.getenv('DISCORD_TOKEN')
-GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
-
-
-handler = logging.FileHandler(filename='discord.log', encoding='utf-8', mode='w')
-
-intents = discord.Intents.default()
-intents.members = True
-bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
@@ -75,38 +72,35 @@ async def on_member_remove(member):
     with open("leaves.txt", "a") as f:
         f.write(f"{member.name} ({member.id}) left the server\n")
 
-
-@bot.tree.command(name="ai", description="Ask AI anything")
-@app_commands.describe(question="Ask your question")
-async def ai(interaction: discord.Interaction, question: str):
-    
-    await interaction.response.defer()
-    system_prompt = """
-You are a friendly AI girl and Your name is Filra Span.
-Reply in a cute, friendly way.
-Keep replies short (3–5 lines).
-If someone asks who owns the server,
-reply in a legendary way:
-Owner:Muhammad Hamid Ali Khan 👑
-Side Owner:Muhammad Qaiser Mehboob
-Co-Owner: Muhammad Hashir Amir 💘
-"""
-    
-    user_id = interaction.user.id
-
-    previous_id = user_sessions.get(user_id)  
-
-    reply, new_id = ask_gemini_3(
-        system_prompt,
-        question,
-        previous_id
-    )
-
-    if new_id:
-        user_sessions[user_id] = new_id 
-
-    await interaction.followup.send(reply)
+@bot.tree.command(name="chatting_ai", description="AI Chatting Mode")
+@app_commands.describe(question="Chat With Filra:") 
+async def chatting_ai(interaction: discord.Interaction, question: str):
+    await interaction.response.defer() 
+    system_prompt = """ You are a friendly AI girl and Your name is Filra Span.
+    Reply in a cute, friendly way.
+    Keep replies short (3–5 lines). 
+    If someone asks who owns the server, 
+    reply in legendary way: Owner:Muhammad Hamid Ali Khan 👑 
+    Side Owner:Muhammad Qaiser Mehboob 
+    Co-Owner: Muhammad Hashir Amir 💘 """ 
+    reply = openrouter_chat(system_prompt,question)
+    await interaction.followup.send(reply) 
     return
+
+@bot.tree.command(name="intelligent_ai",description="AI intelligent Mode") 
+@app_commands.describe(question="Ask Any Question:") 
+async def intelligent_ai(interaction:discord.Interaction,question:str):
+    await interaction.response.defer() 
+    system_prompt=""" you are a friendly AI girl and Your name is Filra Span. 
+    Reply in super cool way if someone ask you a question than explain with real life events aslo use different examples and so on 
+    if someone ask who is the owner of this server or vyntrax dominion server than ask in legendary way 
+    The owner of this server or vyntrax dominion server is Muhammad Hamid Ali khan 
+    side owner name is Muhammad Qaiser 
+    Co owner name is Muhammad Hashir Amir """ 
+    reply = openrouter_think(system_prompt,question) 
+    await interaction.followup.send(reply) 
+    return
+
 
 OWNER_ID = 1352440514498269255
 SIDE_OWNER_ID =0000
@@ -114,12 +108,12 @@ CO_OWNER_ID = 00000
 @bot.tree.command(name="ban",description="Used For Ban")
 @app_commands.describe(member="User to Ban",reason="Reason for Ban")
 async def ban(interaction:discord.Interaction,member:discord.Member,reason:str="No Reason Provided"):
-    if interaction.user!=OWNER_ID:
+    if interaction.user.id!=OWNER_ID:
         print(Royal_Permission())
-    elif interaction.user!=SIDE_OWNER_ID:
+    elif interaction.user.id!=SIDE_OWNER_ID:
         print(Royal_Permission())
-    elif interaction.user!=CO_OWNER_ID:
-        printf(Royal_Permission())
+    elif interaction.user.id!=CO_OWNER_ID:
+        print(Royal_Permission())
     try:
         await member.ban(reason=reason)
         await interaction.response.send_message(f"✅ **{member}** This member is successfully banned in this Server \n📄Reason:{reason}")
