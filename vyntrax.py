@@ -22,10 +22,6 @@ client = OpenAI(
     api_key=os.getenv("DEEPSEEK_API_KEY"),
     base_url="https://openrouter.ai/api/v1"
 )
-client = OpenAI(
-    api_key=DEEPSEEK_API_KEY,
-    base_url="https://api.deepseek.com/v1"
-)
 
 def openrouter_chat(system_prompt, question):
     response = client.chat.completions.create(
@@ -54,10 +50,6 @@ def get_quote():
     quote = json_data[0]['q'] + " - " + json_data[0]['a'] 
     return quote
 
-def Royal_Permission():
-    permission="You Need Royal Permission For Banning User"
-    return permission
-
 @bot.event
 async def on_ready():
     await bot.tree.sync()
@@ -82,7 +74,7 @@ async def chatting_ai(interaction: discord.Interaction, question: str):
     If someone asks who owns the server, 
     reply in legendary way: Owner:Muhammad Hamid Ali Khan 👑 
     Side Owner:Muhammad Qaiser Mehboob 
-    Co-Owner: Muhammad Hashir Amir 💘 """ 
+    Co-Owner: Muhammad Hashir Amir only tell the owners name when user ask 💘 """ 
     reply = openrouter_chat(system_prompt,question)
     await interaction.followup.send(reply) 
     return
@@ -96,29 +88,30 @@ async def intelligent_ai(interaction:discord.Interaction,question:str):
     if someone ask who is the owner of this server or vyntrax dominion server than ask in legendary way 
     The owner of this server or vyntrax dominion server is Muhammad Hamid Ali khan 
     side owner name is Muhammad Qaiser 
-    Co owner name is Muhammad Hashir Amir """ 
+    Co owner name is Muhammad Hashir Amir only tell the owners name when user ask you """ 
     reply = openrouter_think(system_prompt,question) 
     await interaction.followup.send(reply) 
     return
 
 
 OWNER_ID = 1352440514498269255
-SIDE_OWNER_ID =0000
-CO_OWNER_ID = 00000
+SIDE_OWNER_ID =1296830491223396378
+CO_OWNER_ID = 1058768857969479720
 @bot.tree.command(name="ban",description="Used For Ban")
 @app_commands.describe(member="User to Ban",reason="Reason for Ban")
 async def ban(interaction:discord.Interaction,member:discord.Member,reason:str="No Reason Provided"):
-    if interaction.user.id!=OWNER_ID:
-        print(Royal_Permission())
-    elif interaction.user.id!=SIDE_OWNER_ID:
-        print(Royal_Permission())
-    elif interaction.user.id!=CO_OWNER_ID:
-        print(Royal_Permission())
+     
+    allowed_users = [OWNER_ID, SIDE_OWNER_ID, CO_OWNER_ID]
+
+    if interaction.user.id not in allowed_users:
+        await interaction.response.send_message("❌ You need Royal permission to use this command.",ephemeral=True)
+        return  
+
     try:
         await member.ban(reason=reason)
-        await interaction.response.send_message(f"✅ **{member}** This member is successfully banned in this Server \n📄Reason:{reason}")
+        await royal.send_message(f"✅ **{member}**:\n This member is successfully banned in this Server \n**📄Reason**:\n{reason}")
     except Exception as e:
-        await interaction.response.message_send(f"User is not Banned due to internal issue {e}")
+        await interaction.response.send_message(f"User is not Banned due to internal issue {e}")
 
 @bot.tree.command(name="quote",description="Get a Random Motivational Quotes")
 async def quote(interaction:discord.Interaction):
@@ -133,5 +126,19 @@ async def owner(interaction: discord.Interaction):
         "🌟**Side Owner**: Muhammad Qaiser ``(Web Developer)``\n"
         "💘**Co-Owner**: Muhammad Hashir Amir ``(Web Developer)``"
     )
+
+@bot.tree.command(name="kick",description="kick a user from server")
+@app_commands.describe(member="User to kick",reason="Reason for kick")
+async def kick(interaction:discord.Interaction,member:discord.Member,reason:str="No Reason Provided"):
+    
+    allowed_users = [OWNER_ID,SIDE_OWNER_ID,CO_OWNER_ID]
+    if interaction.user.id not in allowed_users:
+        await interaction.response.send_message("❌ You Need Royal Permsission to use this command ",epherical=True)
+        return
+    try:
+        await member.kick(reason=reason)
+        await interaction.response.send_message(f"✅ **{member}:**\n This member is successfully kicked out due to following \n👉**Reason**:\n{reason}")
+    except Exception as e:
+        await interaction.response.send_message(f"🎯User is not kicked due to internel server issue")
 
 bot.run(TOKEN, log_handler=handler, log_level=logging.DEBUG)
