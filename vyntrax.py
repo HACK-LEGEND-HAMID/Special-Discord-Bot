@@ -5,6 +5,8 @@ from discord import app_commands
 from dotenv import load_dotenv
 import logging
 import requests
+from datetime import datetime
+import pytz
 import json
 import random
 from openai import OpenAI
@@ -23,21 +25,61 @@ client = OpenAI(
     base_url="https://openrouter.ai/api/v1"
 )
 
+def free_web_search(query):
+    url = "https://api.duckduckgo.com/"
+    params = {
+        "q": query,
+        "format": "json",
+        "no_html": 1
+    }
+    response = requests.get(url, params=params)
+    data = response.json()
+   
+    text = data.get("AbstractText")
+
+    if text:
+        return text
+    else:
+        return "No Information Available"
+
+
+def get_time(timezone):
+    tz = pytz.timezone(timezone)
+    time_now = datetime.now(tz)
+    return time_now.strftime("%H:%M:%S")
+
 def openrouter_chat(system_prompt, question):
+
+    search_result = free_web_search(question)
+    final_prompt = f"""
+    {system_prompt}
+    Use the following REAL Search Data to Answer:
+    Search Data:
+    {search_result}
+ """
+
     response = client.chat.completions.create(
         model="deepseek/deepseek-chat",
         messages=[
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": final_prompt},
             {"role": "user", "content": question}
         ]
     )
     return response.choices[0].message.content
 
 def openrouter_think(system_prompt, question):
+
+    search_result = free_web_search(question)
+    final_prompt = f"""
+        {system_prompt}
+        Use this internet data:
+        {search_result}
+"""
+
     response = client.chat.completions.create(
         model="deepseek/deepseek-r1",
         messages=[
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": final_prompt},
             {"role": "user", "content": question}
         ]
     )
@@ -63,6 +105,18 @@ async def on_member_join(member):
 async def on_member_remove(member):
     with open("leaves.txt", "a") as f:
         f.write(f"{member.name} ({member.id}) left the server\n")
+
+@bot.tree.command(name="time",description="Get Time by Timezone")
+@app_commands.describe(question="Enter Your Country")
+async def time(interaction: discord.Interaction,question:str):
+    await interaction.response.defer()
+    time=question.lower()
+    if "pakistan" in time:
+        pakistan_time = get_time("Asia/Karachi")
+        await interaction.followup.send(pakistan_time)
+    else:
+        print("Ending")
+
 
 @bot.tree.command(name="chatting_ai", description="AI Chatting Mode")
 @app_commands.describe(question="Chat With Filra:") 
@@ -109,7 +163,7 @@ async def ban(interaction:discord.Interaction,member:discord.Member,reason:str="
 
     try:
         await member.ban(reason=reason)
-        await royal.send_message(f"✅ **{member}**:\n This member is successfully banned in this Server \n**📄Reason**:\n{reason}")
+        await interaction.response.send_message(f"✅ **{member}**:\n This member is successfully banned in this Server \n**📄Reason**:\n{reason}")
     except Exception as e:
         await interaction.response.send_message(f"User is not Banned due to internal issue {e}")
 
