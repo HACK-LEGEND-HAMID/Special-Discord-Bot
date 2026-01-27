@@ -5,11 +5,12 @@ from discord import app_commands
 from dotenv import load_dotenv
 import logging
 import requests
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import pytz
 import json
 import random
 from openai import OpenAI
+
 
 load_dotenv()
 TOKEN= os.getenv('DISCORD_TOKEN')
@@ -21,7 +22,7 @@ intents.members = True
 bot = commands.Bot(command_prefix='!',intents=intents)
 
 client = OpenAI(
-    api_key=os.getenv("DEEPSEEK_API_KEY"),
+    api_key=DEEPSEEK_API_KEY,
     base_url="https://openrouter.ai/api/v1"
 )
 
@@ -106,16 +107,24 @@ async def on_member_remove(member):
     with open("leaves.txt", "a") as f:
         f.write(f"{member.name} ({member.id}) left the server\n")
 
-@bot.tree.command(name="time",description="Get Time by Timezone")
-@app_commands.describe(question="Enter Your Country")
-async def time(interaction: discord.Interaction,question:str):
+COUNTRY_TIMEZONES = {
+    "pakistan": "Asia/Karachi",
+    "usa": "America/New_York",
+    "india": "Asia/Kolkata",
+    "uk": "Europe/London",
+    "japan": "Asia/Tokyo",
+    "australia": "Australia/Sydney"
+}
+
+@bot.tree.command(name="time", description="Get Time by Country")
+@app_commands.describe(country="Enter Your Country")
+async def time(interaction: discord.Interaction, country: str):
     await interaction.response.defer()
-    time=question.lower()
-    if "pakistan" in time:
-        pakistan_time = get_time("Asia/Karachi")
-        await interaction.followup.send(pakistan_time)
+    tz = COUNTRY_TIMEZONES.get(country.lower())
+    if tz:
+        await interaction.followup.send(f"🕒 Time in {country.title()}: {get_time(tz)}")
     else:
-        print("Ending")
+        await interaction.followup.send(f"❌ No timezone info for '{country}'")
 
 
 @bot.tree.command(name="chatting_ai", description="AI Chatting Mode")
@@ -151,6 +160,7 @@ async def intelligent_ai(interaction:discord.Interaction,question:str):
 OWNER_ID = 1352440514498269255
 SIDE_OWNER_ID =1296830491223396378
 CO_OWNER_ID = 1058768857969479720
+
 @bot.tree.command(name="ban",description="Used For Ban")
 @app_commands.describe(member="User to Ban",reason="Reason for Ban")
 async def ban(interaction:discord.Interaction,member:discord.Member,reason:str="No Reason Provided"):
@@ -177,8 +187,8 @@ async def quote(interaction:discord.Interaction):
 async def owner(interaction: discord.Interaction):
     await interaction.response.send_message(
         "👑 **The legendary Creator**: Muhammad Hamid Ali Khan ``(Ethical Hacker)``\n"
-        "🌟**Side Owner**: Muhammad Qaiser ``(Web Developer)``\n"
-        "💘**Co-Owner**: Muhammad Hashir Amir ``(Web Developer)``"
+        "🌟**Side Owner**: NOT Available ``(Web Developer)``\n"
+        "💘**Co-Owner**: NOT Available ``(Web Developer)``"
     )
 
 @bot.tree.command(name="kick",description="kick a user from server")
@@ -187,12 +197,18 @@ async def kick(interaction:discord.Interaction,member:discord.Member,reason:str=
     
     allowed_users = [OWNER_ID,SIDE_OWNER_ID,CO_OWNER_ID]
     if interaction.user.id not in allowed_users:
-        await interaction.response.send_message("❌ You Need Royal Permsission to use this command ",epherical=True)
+        await interaction.response.send_message("❌ You Need Royal Permission to use this command ",ephemeral=True)
         return
     try:
         await member.kick(reason=reason)
         await interaction.response.send_message(f"✅ **{member}:**\n This member is successfully kicked out due to following \n👉**Reason**:\n{reason}")
     except Exception as e:
         await interaction.response.send_message(f"🎯User is not kicked due to internel server issue")
+
+@bot.tree.command(name="libversion",description="Check Discord.py Version")
+async def libversion(interaction:discord.Interaction):
+    version=discord.version_info
+    await interaction.response.send_message(f"Discord.py version:**{version.major}.{version.minor}.{version.micro}**\nRelease level: **{version.releaselevel}**")
+
 
 bot.run(TOKEN, log_handler=handler, log_level=logging.DEBUG)
