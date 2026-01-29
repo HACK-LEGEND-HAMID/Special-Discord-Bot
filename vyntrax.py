@@ -1,5 +1,6 @@
 import os
 import discord
+from discord import Status, Game
 from discord.ext import commands
 from discord import app_commands
 from dotenv import load_dotenv
@@ -19,8 +20,7 @@ DEEPSEEK_API_KEY=os.getenv('DEEPSEEK_API_KEY')
 handler=logging.FileHandler(filename='discord.log', encoding='utf-8',mode='w')
 intents=discord.Intents.default()
 intents.members = True
-bot = commands.Bot(command_prefix='!',intents=intents)
-
+bot = commands.Bot(command_prefix='!',intents=intents, status=Status.dnd, activity=Game(name="Chatting AI"))
 client = OpenAI(
     api_key=DEEPSEEK_API_KEY,
     base_url="https://openrouter.ai/api/v1"
